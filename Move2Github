@@ -1,0 +1,186 @@
+import numpy as np
+from matplotlib import pyplot as plt
+import random
+
+#Implement a function that tells whether a transition has occured,
+#based on the transition probability and a random number.
+
+def has_transitioned(prob):
+    r = random.random()
+    if r < prob:
+        has_transitioned = True
+    else:
+        has_transitioned = False
+    return has_transitioned
+
+#Keep track of the state of the atoms using a either 'A', 'B' or 'C' for each nucleus.
+#For example
+#state = ['A', 'A', 'B', 'A', 'C']
+#Capture the possible physical reaction in a list of allowed transitions
+#such as
+#('A', 'B', 0.25 )
+#The first element is the initial state, the second element is the final state of the transition and its probability in the time interval considered is the third argument.
+
+#Define a function that takes as arguments the current state and a list of such transition rules and implements the transition (or not) and returns the new state
+
+def evolveOne(currentState, rules):
+    if len(rules) == 2:
+        if currentState == rules[0][0] and has_transitioned(rules[0][-1]) == True:
+            return rules[0][1]
+        elif currentState == rules[1][0] and has_transitioned(rules[1][-1]) == True:
+            return rules[1][1]
+        else:
+            return currentState
+    elif len(rules) == 3:
+        if currentState == rules[0][0] and has_transitioned(rules[0][-1]) == True:
+            return rules[0][1]
+        elif currentState == rules[1][0] and has_transitioned(rules[1][-1]) == True:
+            return rules[1][1]
+        elif currentState == rules[2][0] and has_transitioned(rules[2][-1]) == True:
+            return rules[2][1]
+        else:
+            return currentState
+    else:
+        return currentState
+
+#function that takes a list of states and transition them according to the rules passed as argument.
+
+def evolveMany(states, rules):
+    newState = []
+    for i in states:
+        newState.append(evolveOne(i, rules))
+    return newState
+
+
+initialTestArray = ['A', 'B', 'C'] * 5
+testRules = [
+    ('A', 'B', 0.33),
+    ('B', 'C', 0.75)
+]
+
+print(evolveMany(initialTestArray, testRules))
+print(initialTestArray)
+
+#function that evolves a system that starts with initial amounts NA, NB and NC of  A,  B and  C nuclei and evolved it in n_timestep from time  t=0 to  t=tmax.
+
+def evolve_system(NA, NB, NC, rules, n_steps):
+    state = (['A'] * NA) + (['B'] * NB) + (['C'] * NC)
+
+    A_count = [NA]
+    B_count = [NB]
+    C_count = [NC]
+
+    for t in range(0, n_steps):
+        evolvedlist = evolveMany(state, rules)
+
+        A_count.append(evolvedlist.count('A'))
+        B_count.append(evolvedlist.count('B'))
+        C_count.append(evolvedlist.count('C'))
+
+        state = evolvedlist
+
+    A_count_array = np.array(A_count)
+    B_count_array = np.array(B_count)
+    C_count_array = np.array(C_count)
+
+    return A_count_array, B_count_array, C_count_array
+
+#  plot with the number of  A, B and  C nuclei,
+#  starting with 250  C
+#  nuclei and evolving the system for 100 hours using 200 steps and with neutron flux on. Evolve the system for another 100 hours (using 200 steps) without neutron flux (i.e. no transitions from  C to  A).
+
+#   The half life of the A
+#   atoms is 10.1 hours, the half life of B nuclei is 15.7 hours and we can characterise the rate of activation of  C into  A
+#   when the neutron flux is on with and effective half-life of 3.2 hours.
+
+#Conditions
+
+n_steps = 200
+t_total = 100
+dt = t_total / n_steps
+
+t_half_A = 10.1
+t_half_B = 15.7
+t_half_C = 3.2
+
+
+def decayprob(halflife, timestep):
+    lam = np.log(2) / halflife
+    prob = np.exp(-lam * timestep)
+    return 1 - prob
+
+
+ruleset1 = [
+    ('A', 'B', decayprob(t_half_A, dt)),
+    ('B', 'C', decayprob(t_half_B, dt)),
+    ('C', 'A', decayprob(t_half_C, dt))
+]
+
+ruleset2 = [
+    ('A', 'B', decayprob(t_half_A, dt)),
+    ('B', 'C', decayprob(t_half_B, dt))
+]
+
+NA = 0
+NB = 0
+NC = 250
+
+
+# Setting the figure size
+plt.rcParams['figure.figsize'] = [9, 5]
+
+time = np.linspace(0, 200, 402)
+evoArray = evolve_system(NA, NB, NC, ruleset1, n_steps)
+A_values1 = evoArray[0]
+B_values1 = evoArray[1]
+C_values1 = evoArray[2]
+
+evoArray2 = evolve_system(A_values1[-1], B_values1[-1], C_values1[-2], ruleset2, n_steps)
+A_values2 = evoArray2[0]
+B_values2 = evoArray2[1]
+C_values2 = evoArray2[2]
+
+A_both = np.append(A_values1, A_values2)
+B_both = np.append(B_values1, B_values2)
+C_both = np.append(C_values1, C_values2)
+
+plt.plot(time, A_both, label='A Nuclei')
+plt.plot(time, B_both, label='B Nuclei')
+plt.plot(time, C_both, label='C Nuclei')
+plt.plot([100, 100], [0, 250], 'k', linestyle='dashed', lw=1, label='Stop NFlux')
+plt.title('Decay Curves Of 3 Samples Over 200hrs')
+plt.xlabel('Time / hrs')
+plt.ylabel('#No of Nuclei')
+plt.legend(bbox_to_anchor=(1.05, 1.03))
+
+plt.show()
+
+nsim = 20
+
+smallist = []
+
+for i in range(0, 20):
+    evoArray = evolve_system(NA, NB, NC, ruleset1, n_steps)
+    A_values1 = evoArray[0]
+    B_values1 = evoArray[1]
+    C_values1 = evoArray[2]
+
+    evoArray2 = evolve_system(A_values1[-1], B_values1[-1], C_values1[-2], ruleset2, n_steps)
+    A_values2 = evoArray2[0]
+    B_values2 = evoArray2[1]
+    C_values2 = evoArray2[2]
+
+    A_both = np.append(A_values1, A_values2)
+
+    smallist.append(A_both)
+
+allA = np.array(smallist)
+avg_avalues = np.average(allA, axis=0)
+std_a_values = np.std(allA, axis=0)
+stdErr = std_a_values / np.sqrt(nsim)
+
+plt.errorbar(time, avg_avalues, yerr=stdErr, xerr=0)
+plt.xlabel('Time / hrs')
+plt.ylabel('#No of A Nuclei')
+plt.title('Decay of A Nuclei over 20 Simulations')
+plt.show()
